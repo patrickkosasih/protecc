@@ -1,5 +1,5 @@
 """
-Protecc (beta)
+Protecc
 by Patrick Kosasih
 
 A python program that encrypts and decrypts files
@@ -12,7 +12,7 @@ import gui
 path = "D:/protecc"  # Path of folder to be encrypted
 
 
-match input("[E]ncrypt or [D]ecrypt? ").upper():
+"""match input("[E]ncrypt or [D]ecrypt? ").upper():
     case "E":
         print("Encrypting...")
         count = filemgr.encrypt_dir(path)
@@ -22,12 +22,12 @@ match input("[E]ncrypt or [D]ecrypt? ").upper():
         count = filemgr.decrypt_dir(path)
         print(f"Finished decrypting {count} files")
     case _:
-        print("Invalid option bruh")
+        print("Invalid option bruh")"""
 
 
-"""def main():
+def main():
     gui.MainWindow().mainloop()
 
 
 if __name__ == '__main__':
-    main()"""
+    main()
