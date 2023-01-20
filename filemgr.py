@@ -7,7 +7,6 @@ import random
 import struct
 
 import codec
-import misc
 
 SEED_RANGE = -(2 ** 63), 2 ** 63  # 64 bit range
 
