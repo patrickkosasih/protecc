@@ -3,6 +3,7 @@ shared.py
 A shared module containing constants and functions that is used in multiple other modules
 """
 import time
+import os
 
 # Shared constants
 SYMBOLS = " !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"
@@ -25,3 +26,8 @@ def func_timer(func):
         return ret
 
     return wrapper
+
+
+def hide_file(file, unhide=False):
+    plus_minus = "-" if unhide else "+"
+    os.system(f"attrib {plus_minus}h {file}")
