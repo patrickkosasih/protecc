@@ -4,15 +4,17 @@ A shared module containing constants and functions that is used in multiple othe
 """
 import time
 
+# Shared constants
 SYMBOLS = " !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"
 PASS_DOT = chr(0x2022)
 
 
-def valid_char(p) -> bool:
-    return p.isalpha() or p.isnumeric() or p in SYMBOLS
+def valid_char(c) -> bool:
+    # Check if a character is a legal character for a password or not
+    return c.isalpha() or c.isnumeric() or c in SYMBOLS
 
 
-def measure(func):
+def func_timer(func):
     # A decorator to measure the time taken to run a function
     def wrapper(*args, **kwargs):
         time_before = time.perf_counter()
