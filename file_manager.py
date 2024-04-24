@@ -21,7 +21,13 @@ def list_files(dir_path: str):
 
 
 # @misc.timer
-def encrypt_file(file_path: str):
+def encrypt_file(file_path: str) -> bool:
+    file_ext = os.path.splitext(file_path)[1]
+    if file_ext == ".protecclock":
+        return False
+
+    print(f"Encrypting {file_path}")
+
     with open(file_path, "rb") as f:
         raw = f.read()
 
@@ -34,11 +40,17 @@ def encrypt_file(file_path: str):
 
     os.rename(file_path, file_path + ".protecc")
 
+    return True
+
 
 # @misc.timer
-def decrypt_file(file_path: str):
-    if os.path.splitext(file_path)[1] != ".protecc":
-        return
+def decrypt_file(file_path: str) -> bool:
+    # IMPORTANT!!!!!!!! If these 3 lines of code below don't exist then files can potentially be LOST FOREVER.
+    file_ext = os.path.splitext(file_path)[1]
+    if file_ext != ".protecc":
+        return False
+
+    print(f"Decrypting {file_path}")
 
     with open(file_path, "rb") as f:
         raw = f.read()
@@ -52,18 +64,22 @@ def decrypt_file(file_path: str):
 
     os.rename(file_path, os.path.splitext(file_path)[0])
 
+    return True
 
-def encrypt_dir(dir_path: str):
+
+def encrypt_folder(dir_path: str):
     count = 0
     for file in list_files(dir_path):
-        encrypt_file(file)
-        count += 1
+        a = encrypt_file(file)
+        if a:
+            count += 1
     return count
 
 
-def decrypt_dir(dir_path: str):
+def decrypt_folder(dir_path: str):
     count = 0
     for file in list_files(dir_path):
-        decrypt_file(file)
-        count += 1
+        a = decrypt_file(file)
+        if a:
+            count += 1
     return count

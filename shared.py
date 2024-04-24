@@ -7,7 +7,6 @@ import os
 
 # Shared constants
 SYMBOLS = " !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"
-PASS_DOT = chr(0x2022)
 
 
 def valid_char(c) -> bool:
