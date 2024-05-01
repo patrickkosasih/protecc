@@ -17,10 +17,10 @@ class Codec:
 
         self.reverse_byte_key = [self.byte_key.index(x) for x in range(256)]
 
-    def encrypt(self, s: bytes):
+    def encrypt(self, s: bytes) -> bytes:
         return bytes(self.byte_key[x] for x in s)
 
-    def decrypt(self, s: bytes):
+    def decrypt(self, s: bytes) -> bytes:
         return bytes(self.reverse_byte_key[x] for x in s)
 
 

@@ -1,5 +1,5 @@
 """
-filemgr.py (File manager)
+file_codec.py
 """
 
 import os
@@ -17,10 +17,14 @@ def list_files(dir_path: str):
     """
     for root, dirs, files in os.walk(dir_path):
         for file in files:
-            yield f"{root}/{file}"
+            yield os.path.join(root, file)
 
 
-# @misc.timer
+def hide_file(file, unhide=False):
+    plus_minus = "-" if unhide else "+"
+    os.system(f"attrib {plus_minus}h {file}")
+
+
 def encrypt_file(file_path: str) -> bool:
     file_ext = os.path.splitext(file_path)[1]
     if file_ext == ".protecclock":
