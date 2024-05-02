@@ -6,14 +6,6 @@ import colorsys
 import time
 import os
 
-# Shared constants
-SYMBOLS = " !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"
-
-
-def valid_char(c) -> bool:
-    # Check if a character is a legal character for a password or not
-    return c.isalpha() or c.isnumeric() or c in SYMBOLS
-
 
 def func_timer(func):
     # A decorator to measure the time taken to run a function

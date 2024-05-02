@@ -5,19 +5,12 @@ file_codec.py
 import os
 import random
 import struct
+from typing import Callable
 
 import codec
 
+
 SEED_RANGE = -(2 ** 63), 2 ** 63  # 64 bit range
-
-
-def list_files(dir_path: str):
-    """
-    Iterates through a list of paths of all the files in a directory including its subdirectories
-    """
-    for root, dirs, files in os.walk(dir_path):
-        for file in files:
-            yield os.path.join(root, file)
 
 
 def hide_file(file, unhide=False):
@@ -30,7 +23,7 @@ def encrypt_file(file_path: str) -> bool:
     if file_ext == ".protecclock":
         return False
 
-    print(f"Encrypting {file_path}")
+    # print(f"Encrypting {file_path}")
 
     with open(file_path, "rb") as f:
         raw = f.read()
@@ -54,7 +47,7 @@ def decrypt_file(file_path: str) -> bool:
     if file_ext != ".protecc":
         return False
 
-    print(f"Decrypting {file_path}")
+    # print(f"Decrypting {file_path}")
 
     with open(file_path, "rb") as f:
         raw = f.read()
@@ -71,19 +64,44 @@ def decrypt_file(file_path: str) -> bool:
     return True
 
 
-def encrypt_folder(dir_path: str):
-    count = 0
-    for file in list_files(dir_path):
-        a = encrypt_file(file)
-        if a:
-            count += 1
-    return count
+class ProteccFolder:
+    def __init__(self, path,
+                 progress_updater: Callable[[int, int], None] = lambda current, total: None):
 
+        self.path = path
+        self.progress_updater = progress_updater
 
-def decrypt_folder(dir_path: str):
-    count = 0
-    for file in list_files(dir_path):
-        a = decrypt_file(file)
-        if a:
-            count += 1
-    return count
+    def list_files(self):
+        """
+        Iterates through a list of paths of all the files in the folder codec's path.
+        """
+        for root, dirs, files in os.walk(self.path):
+            for file in files:
+
+                    yield os.path.join(root, file)
+
+    @property
+    def locked(self):
+        return any(os.path.splitext(x)[1] == ".protecc" for x in self.list_files())
+
+    def encrypt(self) -> int:
+        files_to_encrypt = [x for x in self.list_files() if os.path.splitext(x)[1] != ".protecclock"]
+        n_files = len(files_to_encrypt)
+
+        for i, file in enumerate(files_to_encrypt):
+            self.progress_updater(i, n_files)
+            encrypt_file(file)
+
+        self.progress_updater(n_files, n_files)
+        return n_files
+
+    def decrypt(self) -> int:
+        files_to_decrypt = [x for x in self.list_files() if os.path.splitext(x)[1] == ".protecc"]
+        n_files = len(files_to_decrypt)
+
+        for i, file in enumerate(files_to_decrypt):
+            self.progress_updater(i, n_files)
+            decrypt_file(file)
+
+        self.progress_updater(n_files, n_files)
+        return n_files
