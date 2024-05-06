@@ -20,6 +20,11 @@ def func_timer(func):
     return wrapper
 
 
+"""
+Color functions
+"""
+
+
 def rgb_hex_to_int(hex_rgb: str) -> tuple:
     """
     Converts a hex RGB string into three 8-bit values in a tuple
@@ -57,3 +62,17 @@ def hsv_factor(rgb: tuple or str, hf=0, sf=1, vf=1) -> str:
     int_rgb = tuple(int(x * 255) for x in new_rgb)  # Convert RGB values from 0.0 - 1.0 to 0 - 255
 
     return rgb_int_to_hex(int_rgb)
+
+
+def mix_color(c1: tuple or str, c2: tuple or str, fac=0.5) -> str:
+    """
+    Mixes two colors by averaging the RGB values. Colors must be in RGB tuple format.
+
+    :param c1: Color 1.
+    :param c2: Color 2.
+    :param fac: The factor of the color mixing, with 0 being closer to c1 and 1 being closer to c2.
+    """
+    c1 = rgb_hex_to_int(c1) if type(c1) is str else c1
+    c2 = rgb_hex_to_int(c2) if type(c2) is str else c2
+
+    return rgb_int_to_hex(tuple(int((1 - fac) * x + fac * y) for x, y in zip(c1, c2)))

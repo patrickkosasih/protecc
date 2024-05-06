@@ -9,10 +9,11 @@ from typing import Callable
 import file_codec
 import shared
 import passwords
-
+import animations as anim
 
 DEFAULT_FONT = "Raleway"
 PASS_DOT = chr(0x2022)
+GUI_STATES = ["locked", "unlocked", "locking", "unlocking"]
 
 
 class MainMenuBar(tk.Menu):
@@ -32,8 +33,8 @@ class PadlockIcon(tk.Canvas):
     COLORS = {
         "locked": "#ff6666",
         "unlocked": "#8fff8f",
-        "locking": "#ffa666",
-        "unlocking": "#ffe066"
+        "locking": "#ffe066",
+        "unlocking": "#ffa666"
     }
 
     ANGLES = {
@@ -43,10 +44,14 @@ class PadlockIcon(tk.Canvas):
         "unlocking": 180
     }
 
-    def __init__(self, root, width=250, height=250, **kwargs):
+    def __init__(self, root, width=250, height=250, bg="SystemButtonFace", **kwargs):
         super().__init__(root, width=width, height=height, **kwargs)
 
-        self.size = width, height
+        self.configure(bg=bg, highlightthickness=0)
+
+        self._root = root
+        self._size = width, height
+        self._gui_state = "locked"
 
         """
         Padlock canvas components
@@ -62,7 +67,7 @@ class PadlockIcon(tk.Canvas):
         Draw/initialize the components of the padlock on the canvas. Only called once in the constructor.
         """
 
-        w, h = self.size
+        w, h = self._size
         mid = h * 0.42
 
         rrr = h // 8
@@ -87,29 +92,43 @@ class PadlockIcon(tk.Canvas):
         self.rounded_rect[4] = self.create_rectangle(0, mid + rrr, w, h - rrr, fill=color, outline="")
         self.rounded_rect[5] = self.create_rectangle(rrr, mid, w - rrr, h, fill=color, outline="")
 
-    def set_gui_state(self, state: str):
-        if state not in PadlockIcon.COLORS:
+    def set_gui_state(self, state: str, duration=0.5):
+        if state not in GUI_STATES:
             raise ValueError(f"invalid state argument: {state}")
 
-        color = PadlockIcon.COLORS[state]
-        angle = PadlockIcon.ANGLES[state]
+        prev_state = self._gui_state
+        self._gui_state = state
 
+        old_color, new_color = PadlockIcon.COLORS[prev_state], PadlockIcon.COLORS[state]
+        old_angle, new_angle = PadlockIcon.ANGLES[prev_state], PadlockIcon.ANGLES[state]
+
+        if duration <= 0:
+            self.set_color(new_color)
+            self.set_angle(new_angle)
+        else:
+            anim.FadeColor(self._root, duration, old_color, new_color, self.set_color).start()
+            anim.VarSlider(self._root, duration, old_angle, new_angle, self.set_angle,
+                           interpol_func=anim.Interpolations.ease_in_out).start()
+
+    def set_color(self, color: str):
         for x in self.rounded_rect + [self.outer_arc]:
             self.itemconfig(x, fill=color)
 
+    def set_angle(self, angle: int):
         self.itemconfig(self.outer_arc, extent=angle)
-        self.itemconfig(self.inner_arc, extent=180)
 
 
 class RoundedButton(tk.Canvas):
     DEFAULT_COLOR = "#bababa"
 
-    def __init__(self, root, width, height, color: str or tuple = DEFAULT_COLOR,
+    def __init__(self, root, width, height,
+                 bg: str = "", color: str = DEFAULT_COLOR,
                  command: Callable[[], None] = lambda: None,
                  text="",
                  **kwargs):
 
         super().__init__(root, width=width, height=height, **kwargs)
+        self.configure(bg=bg, highlightthickness=0)
 
         """
         General attributes
@@ -173,17 +192,29 @@ class RoundedButton(tk.Canvas):
 
 
 class MainWindow(tk.Tk):
-    def __init__(self, locked_folder_path: str):
+    def __init__(self, folder_path: str):
         super(MainWindow, self).__init__()
 
         """
         Attributes
         """
-        self.input_password = ""
-        self.pass_label_cursor = True
+        self.folder = file_codec.ProteccFolder(folder_path, self.update_progress)
         self._gui_state = "locked"
 
-        self.folder = file_codec.ProteccFolder(locked_folder_path, self.update_progress)
+        self.input_password = ""
+        self.pass_label_cursor = False
+        self.subtitle_flash_anim: anim.FadeColor or None = None
+
+        self.bg = "#f1f1f1"
+        self.fg = "#292a2e"
+
+        """
+        Window configurations
+        """
+        # self.title(f"Protecc - {folder_path}")
+        self.title("Protecc")
+        self.bind("<Key>", self.key_press)
+        self.configure(bg=self.bg)
 
         """
         GUI Widgets
@@ -199,20 +230,17 @@ class MainWindow(tk.Tk):
             d. Progress bar     - When locking/unlocking
             e. Progress label   - When locking/unlocking
         """
-        self.title(f"Protecc - {locked_folder_path}")
-        self.bind("<Key>", self.key_press)
+        self.title_label = tk.Label(self, text="This folder is \n\"protecc\"ted", font=(DEFAULT_FONT, 48), bg=self.bg, fg=self.fg)
+        self.padlock_icon = PadlockIcon(self, bg=self.bg)
+        self.pass_label = tk.Label(self, text="", font=(DEFAULT_FONT, 24), bg=self.bg, fg=self.fg)
+        self.subtitle_label = tk.Label(self, text="Enter password to continue.", font=(DEFAULT_FONT, 18), bg=self.bg, fg=self.fg)
 
-        self.title_label = tk.Label(self, text="This folder is \n\"protecc\"ted", font=(DEFAULT_FONT, 48))
-        self.padlock_icon = PadlockIcon(self)
-        self.pass_label = tk.Label(self, text="|", font=(DEFAULT_FONT, 24))
-        self.subtitle_label = tk.Label(self, text="Enter password to continue.", font=(DEFAULT_FONT, 18))
-
-        self.bottom_frame = tk.Frame(self, height=75)
-        self.enter_button = RoundedButton(self.bottom_frame, 250, 75, text="Enter", command=self.enter_password)
-        self.open_button = RoundedButton(self.bottom_frame, 150, 75, text="Open", command=self.open_folder)
-        self.lock_button = RoundedButton(self.bottom_frame, 150, 75, text="Lock", command=self.lock_folder)
+        self.bottom_frame = tk.Frame(self, height=75, bg=self.bg)
+        self.enter_button = RoundedButton(self.bottom_frame, 250, 75, text="Enter", command=self.enter_password, bg=self.bg)
+        self.open_button = RoundedButton(self.bottom_frame, 150, 75, text="Open", command=self.open_folder, bg=self.bg)
+        self.lock_button = RoundedButton(self.bottom_frame, 150, 75, text="Lock", command=self.lock_folder, bg=self.bg)
         self.progress_bar = Progressbar(self.bottom_frame, length=300)
-        self.progress_label = tk.Label(self.bottom_frame, text="", font=(DEFAULT_FONT, 12))
+        self.progress_label = tk.Label(self.bottom_frame, text="", font=(DEFAULT_FONT, 12), bg=self.bg, fg=self.fg)
 
         self.title_label.pack(padx=30, pady=20)
         self.padlock_icon.pack()
@@ -223,7 +251,7 @@ class MainWindow(tk.Tk):
         self.menu_bar = MainMenuBar(self)
         self.config(menu=self.menu_bar)
 
-        self.set_gui_state("locked" if self.folder.locked else "unlocked")
+        self.set_gui_state("locked" if self.folder.locked else "unlocked", 0.0)
         self.after(500, self.pass_label_blink)
 
         if not passwords.pass_file_exists():
@@ -237,7 +265,7 @@ class MainWindow(tk.Tk):
         if not self.folder.locked:
             return
 
-        self.subtitle_label["text"] = "Enter password to continue"
+        self.subtitle_label["text"] = "Enter password to continue."
 
         if passwords.is_valid_char(event.char) and len(self.input_password) < 100:
             self.input_password += event.char
@@ -264,6 +292,7 @@ class MainWindow(tk.Tk):
             Thread(target=self.folder.decrypt).start()
         else:
             self.subtitle_label["text"] = "Incorrect password!"
+            self.flash_subtitle("ff0000", 0.5)
 
     def open_folder(self):
         os.system(f"explorer {self.folder.path}")
@@ -272,13 +301,17 @@ class MainWindow(tk.Tk):
         self.set_gui_state("locking")
         Thread(target=self.folder.encrypt).start()
 
-    def set_gui_state(self, state: str):
+    def set_gui_state(self, state: str, duration=0.25):
+        if state not in GUI_STATES:
+            raise ValueError(f"invalid state argument: {state}")
+
         self._gui_state = state
+        self.padlock_icon.set_gui_state(state, duration)
 
         match state:
             case "locked":
-                self.title_label["text"] = "This folder is \n\"protecc\"ted."
-                self.subtitle_label["text"] = "Enter password to continue."
+                self.set_text_fade(self.title_label, "This folder is \n\"protecc\"ted.", duration * 2.5)
+                self.set_text_fade(self.subtitle_label, "Enter password to continue.", duration * 1.5)
                 self.input_password = ""
                 self.update_pass_label()
 
@@ -288,8 +321,8 @@ class MainWindow(tk.Tk):
                 self.enter_button.pack()
 
             case "unlocked":
-                self.title_label["text"] = "This folder is \nunlocked."
-                self.subtitle_label["text"] = "What do you want to do?"
+                self.set_text_fade(self.title_label, "This folder is \nunlocked.", duration * 2.5)
+                self.set_text_fade(self.subtitle_label, "What would you like to do?", duration * 1.5)
 
                 self.progress_bar.pack_forget()
                 self.progress_label.pack_forget()
@@ -298,7 +331,7 @@ class MainWindow(tk.Tk):
                 self.lock_button.pack(side=tk.RIGHT, padx=5)
 
             case "locking":
-                self.subtitle_label["text"] = "Locking folder, please wait..."
+                self.set_text_fade(self.subtitle_label, "Locking folder. Please wait...", duration)
 
                 self.open_button.pack_forget()
                 self.lock_button.pack_forget()
@@ -310,15 +343,23 @@ class MainWindow(tk.Tk):
 
             case "unlocking":
                 self.subtitle_label["text"] = "Access granted! Please wait..."
+                self.flash_subtitle("#00ff00", 0.75)
+
                 self.enter_button.pack_forget()
 
                 self.progress_bar.pack(pady=5)
                 self.progress_label.pack(pady=5)
 
-            case _:
-                raise ValueError(f"invalid state argument: {state}")
-
-        self.padlock_icon.set_gui_state(state)
+    def update_progress(self, current, total):
+        if current == total:
+            if self._gui_state == "locking":
+                self.set_gui_state("locked")
+            elif self._gui_state == "unlocking":
+                self.set_gui_state("unlocked")
+                self.open_folder()
+        else:
+            self.progress_bar["value"] = current / total * 100
+            self.progress_label["text"] = f"{'En' if self._gui_state == 'locking' else 'De'}crypting {current}/{total}"
 
     def set_password(self, setup_mode=False):
         while True:
@@ -389,13 +430,22 @@ class MainWindow(tk.Tk):
         self.update_pass_label()
         self.after(500, self.pass_label_blink)
 
-    def update_progress(self, current, total):
-        if current == total:
-            if self._gui_state == "locking":
-                self.set_gui_state("locked")
-            elif self._gui_state == "unlocking":
-                self.set_gui_state("unlocked")
-                self.open_folder()
-        else:
-            self.progress_bar["value"] = current / total * 100
-            self.progress_label["text"] = f"{'En' if self._gui_state == 'locking' else 'De'}crypting {current}/{total}"
+    def flash_subtitle(self, color: str, duration=0.4):
+        if duration <= 0:
+            return
+        elif self.subtitle_flash_anim:
+            self.subtitle_flash_anim.stop()
+
+        self.subtitle_flash_anim = anim.FadeColor(self, duration, color, self.fg,
+                                                  lambda c: self.subtitle_label.configure(fg=c))
+        self.subtitle_flash_anim.start()
+
+    def set_text_fade(self, label: tk.Label, text: str, duration=0.4):
+        def fade_back():
+            label["text"] = text
+            anim.FadeColor(self, duration / 2, self.bg, self.fg,
+                           set_color_func=lambda c: label.configure(fg=c)).start()
+
+        anim.FadeColor(self, duration / 2, self.fg, self.bg,
+                       set_color_func=lambda c: label.configure(fg=c),
+                       call_on_finish=fade_back).start()
