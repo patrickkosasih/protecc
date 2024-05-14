@@ -1,16 +1,18 @@
 """
-file_codec.py
+file_manager.py
 """
 
 import os
 import random
 import struct
+import multiprocessing as mp
 from typing import Callable
 
 import codec
-
+from shared import func_timer
 
 SEED_RANGE = -(2 ** 63), 2 ** 63  # 64 bit range
+# progress_updater = lambda current, total: None
 
 
 def hide_file(file, unhide=False):
@@ -71,37 +73,74 @@ class ProteccFolder:
         self.path = path
         self.progress_updater = progress_updater
 
+        self.busy = False
+
     def list_files(self):
         """
-        Iterates through a list of paths of all the files in the folder codec's path.
+        Iterates through a list of paths of all the files in the folder's path.
         """
         for root, dirs, files in os.walk(self.path):
             for file in files:
-
-                    yield os.path.join(root, file)
+                yield os.path.join(root, file)
 
     @property
     def locked(self):
         return any(os.path.splitext(x)[1] == ".protecc" for x in self.list_files())
 
-    def encrypt(self) -> int:
-        files_to_encrypt = [x for x in self.list_files() if os.path.splitext(x)[1] != ".protecclock"]
-        n_files = len(files_to_encrypt)
+    # @func_timer
+    def encrypt(self):
+        files = [x for x in self.list_files() if os.path.splitext(x)[1] != ".protecclock"]
+        self._encrypt_decrypt(True, files)
 
-        for i, file in enumerate(files_to_encrypt):
-            self.progress_updater(i, n_files)
-            encrypt_file(file)
+    # @func_timer
+    def decrypt(self):
+        files = [x for x in self.list_files() if os.path.splitext(x)[1] == ".protecc"]
+        self._encrypt_decrypt(False, files)
 
-        self.progress_updater(n_files, n_files)
-        return n_files
+    def _encrypt_decrypt(self, encrypt: bool, files: list[str]):
+        """
+        The sub-method that is called by both the encrypt and decrypt methods.
 
-    def decrypt(self) -> int:
-        files_to_decrypt = [x for x in self.list_files() if os.path.splitext(x)[1] == ".protecc"]
-        n_files = len(files_to_decrypt)
+        :param encrypt: True - encrypt, False - decrypt
+        :param files: List of file paths to encrypt.
+        """
 
-        for i, file in enumerate(files_to_decrypt):
-            self.progress_updater(i, n_files)
-            decrypt_file(file)
+        assert not self.busy, "this folder is currently busy encrypting/decrypting files"
 
-        self.progress_updater(n_files, n_files)
-        return n_files
+        self.busy = True
+
+        files = sorted(files, key=os.path.getsize, reverse=True)
+        n_files = len(files)
+        self.progress_updater(0, n_files)
+
+        q = mp.Queue()
+        for x in files:
+            q.put(x)
+
+        processes = []
+        for i in range(mp.cpu_count()):
+            p = mp.Process(target=self._encrypt_decrypt_process, args=(q, encrypt))
+            processes.append(p)
+            p.start()
+
+        while (files_left := q.qsize()) > 0:
+            self.progress_updater(n_files - files_left, n_files)
+
+        for p in processes:
+            p.join()
+
+        self.progress_updater(n_files + 1, n_files)
+        self.busy = False
+
+    @staticmethod
+    def _encrypt_decrypt_process(file_queue: mp.Queue, encrypt: bool) -> None:
+        """
+        The function that is run by each process/CPU core during multiprocessing.
+
+        :param file_queue: Multiprocessing queue of the files
+        :param encrypt: True - encrypt, False - decrypt.
+        """
+        cipher_func = encrypt_file if encrypt else decrypt_file
+
+        while not file_queue.empty():
+            cipher_func(file_queue.get())

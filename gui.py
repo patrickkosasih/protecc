@@ -351,7 +351,7 @@ class MainWindow(tk.Tk):
                 self.progress_label.pack(pady=5)
 
     def update_progress(self, current, total):
-        if current == total:
+        if current > total:
             if self._gui_state == "locking":
                 self.set_gui_state("locked")
             elif self._gui_state == "unlocking":
