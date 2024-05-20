@@ -8,7 +8,7 @@ import struct
 import multiprocessing as mp
 from typing import Callable
 
-import codec
+import cipher
 from shared import func_timer
 
 SEED_RANGE = -(2 ** 63), 2 ** 63  # 64 bit range
@@ -32,7 +32,7 @@ def encrypt_file(file_path: str) -> bool:
 
     key = random.randrange(*SEED_RANGE)
     # print(key)
-    converted = codec.Codec(key).encrypt(raw) + struct.pack("q", key)
+    converted = cipher.Codec(key).encrypt(raw) + struct.pack("q", key)
 
     with open(file_path, "wb") as f:
         f.write(converted)
@@ -56,7 +56,7 @@ def decrypt_file(file_path: str) -> bool:
 
     # The last 8 bytes of an encrypted file is the key for decryption
     key = struct.unpack("q", raw[-8:])[0]
-    converted = codec.Codec(key).decrypt(raw[:-8])
+    converted = cipher.Codec(key).decrypt(raw[:-8])
 
     with open(file_path, "wb") as f:
         f.write(converted)
@@ -143,4 +143,7 @@ class ProteccFolder:
         cipher_func = encrypt_file if encrypt else decrypt_file
 
         while not file_queue.empty():
-            cipher_func(file_queue.get())
+            try:
+                cipher_func(file_queue.get())
+            except PermissionError:
+                pass

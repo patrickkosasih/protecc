@@ -9,7 +9,7 @@ Note: The encryption and security algorithm of Protecc is slow and bad. Any hack
 easily crack the encryption in minutes. :(
 """
 
-import file_codec
+import file_manager
 import gui
 
 

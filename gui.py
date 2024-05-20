@@ -6,7 +6,7 @@ from tkinter import messagebox, simpledialog
 import keyboard
 from typing import Callable
 
-import file_codec
+import file_manager
 import shared
 import passwords
 import animations as anim
@@ -198,7 +198,7 @@ class MainWindow(tk.Tk):
         """
         Attributes
         """
-        self.folder = file_codec.ProteccFolder(folder_path, self.update_progress)
+        self.folder = file_manager.ProteccFolder(folder_path, self.update_progress)
         self._gui_state = "locked"
 
         self.input_password = ""
